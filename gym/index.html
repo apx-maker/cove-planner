@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="gym">
@@ -29,8 +29,8 @@ body.dark{
   --text:#F0F0F0;--muted:#8A8A92;--muted2:#5A5A62;
   --border:rgba(255,255,255,.07);--sh:0 2px 14px rgba(0,0,0,.4);
 }
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-html,body{height:100%;}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+html,body{height:100%;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
 body{font-family:'Manrope',system-ui,sans-serif;background:var(--bg);color:var(--text);overscroll-behavior:none;}
 button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:none;}
 input{font-family:inherit;color:inherit;}
@@ -704,6 +704,10 @@ $('#wipeBtn').addEventListener('click',()=>{
   Object.keys(tmpDrafts).forEach(k=>delete tmpDrafts[k]);
   renderAll(); $('#sheet').classList.remove('on'); toast('All data deleted');
 });
+
+// No zooming: block pinch (iOS ignores user-scalable=no). Double-tap zoom is off via touch-action.
+['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
+document.addEventListener('touchmove',e=>{ if(e.touches.length>1) e.preventDefault(); },{passive:false});
 
 function renderAll(){ renderHeader(); renderTrain(); renderDaily(); renderHistory(); }
 applyTheme();
