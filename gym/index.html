@@ -256,7 +256,7 @@ const PLAN = {
   ]},
   tue:{short:'Tue',dow:2,tag:'Pull',title:'Back + Biceps + Abs',ex:[
     ['Pull-ups',3,6,10,null],
-    ['Cable Row',3,8,12,'15–20'],
+    ['Cable Row',3,8,12,'49'],
     ['1-Arm DB Row',2,8,12,'10–12'],
     ['DB Pullover',2,10,15,'12.5–17.5'],
     ['Rear-Delt DB Fly',3,12,20,'5–7.5'],
@@ -348,7 +348,8 @@ function freshDraft(day){
     const last=lastSession(day,e.n), up=earnedProgress(e,last);
     return Array.from({length:e.s},(_,j)=>{
       const ls = last && (last.sets[j] || last.sets[last.sets.length-1]);
-      let kg = e.kg==null ? null : (ls && ls.kg!=null ? +ls.kg : parseFloat(e.kg));
+      // Never start below the plan's weight, so raising it in PLAN overrides older, lighter logs.
+      let kg = e.kg==null ? null : Math.max(parseFloat(e.kg), ls && ls.kg!=null ? +ls.kg : 0);
       if(up && kg!=null) kg += settings.step;
       const reps = up ? e.lo : (ls ? +ls.reps : e.lo);
       return {kg,reps,done:false};
@@ -358,7 +359,10 @@ function freshDraft(day){
 // Drafts are only persisted once you touch something, so browsing another day never goes stale.
 const tmpDrafts = {};
 function getDraft(day){
-  if(drafts[day] && drafts[day].ex.length===PLAN[day].ex.length) return drafts[day];
+  if(drafts[day] && drafts[day].ex.length===PLAN[day].ex.length){
+    PLAN[day].ex.forEach((e,i)=>{ if(e.kg!=null) drafts[day].ex[i].forEach(s=>{ if(!s.done && s.kg<parseFloat(e.kg)) s.kg=parseFloat(e.kg); }); });
+    return drafts[day];
+  }
   return tmpDrafts[day] || (tmpDrafts[day]=freshDraft(day));
 }
 function touchDraft(day){ drafts[day]=getDraft(day); delete tmpDrafts[day]; saveDrafts(); }
