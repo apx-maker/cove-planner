@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="gym">
@@ -29,8 +29,8 @@ body.dark{
   --text:#F0F0F0;--muted:#8A8A92;--muted2:#5A5A62;
   --border:rgba(255,255,255,.07);--sh:0 2px 14px rgba(0,0,0,.4);
 }
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-html,body{height:100%;}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+html,body{height:100%;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
 body{font-family:'Manrope',system-ui,sans-serif;background:var(--bg);color:var(--text);overscroll-behavior:none;}
 button{font-family:inherit;color:inherit;cursor:pointer;border:none;background:none;}
 input{font-family:inherit;color:inherit;}
@@ -256,7 +256,7 @@ const PLAN = {
   ]},
   tue:{short:'Tue',dow:2,tag:'Pull',title:'Back + Biceps + Abs',ex:[
     ['Pull-ups',3,6,10,null],
-    ['Cable Row',3,8,12,'15–20'],
+    ['Cable Row',3,8,12,'49'],
     ['1-Arm DB Row',2,8,12,'10–12'],
     ['DB Pullover',2,10,15,'12.5–17.5'],
     ['Rear-Delt DB Fly',3,12,20,'5–7.5'],
@@ -348,7 +348,8 @@ function freshDraft(day){
     const last=lastSession(day,e.n), up=earnedProgress(e,last);
     return Array.from({length:e.s},(_,j)=>{
       const ls = last && (last.sets[j] || last.sets[last.sets.length-1]);
-      let kg = e.kg==null ? null : (ls && ls.kg!=null ? +ls.kg : parseFloat(e.kg));
+      // Never start below the plan's weight, so raising it in PLAN overrides older, lighter logs.
+      let kg = e.kg==null ? null : Math.max(parseFloat(e.kg), ls && ls.kg!=null ? +ls.kg : 0);
       if(up && kg!=null) kg += settings.step;
       const reps = up ? e.lo : (ls ? +ls.reps : e.lo);
       return {kg,reps,done:false};
@@ -358,7 +359,10 @@ function freshDraft(day){
 // Drafts are only persisted once you touch something, so browsing another day never goes stale.
 const tmpDrafts = {};
 function getDraft(day){
-  if(drafts[day] && drafts[day].ex.length===PLAN[day].ex.length) return drafts[day];
+  if(drafts[day] && drafts[day].ex.length===PLAN[day].ex.length){
+    PLAN[day].ex.forEach((e,i)=>{ if(e.kg!=null) drafts[day].ex[i].forEach(s=>{ if(!s.done && s.kg<parseFloat(e.kg)) s.kg=parseFloat(e.kg); }); });
+    return drafts[day];
+  }
   return tmpDrafts[day] || (tmpDrafts[day]=freshDraft(day));
 }
 function touchDraft(day){ drafts[day]=getDraft(day); delete tmpDrafts[day]; saveDrafts(); }
@@ -704,6 +708,10 @@ $('#wipeBtn').addEventListener('click',()=>{
   Object.keys(tmpDrafts).forEach(k=>delete tmpDrafts[k]);
   renderAll(); $('#sheet').classList.remove('on'); toast('All data deleted');
 });
+
+// No zooming: block pinch (iOS ignores user-scalable=no). Double-tap zoom is off via touch-action.
+['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
+document.addEventListener('touchmove',e=>{ if(e.touches.length>1) e.preventDefault(); },{passive:false});
 
 function renderAll(){ renderHeader(); renderTrain(); renderDaily(); renderHistory(); }
 applyTheme();
