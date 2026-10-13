@@ -1,4 +1,4 @@
-const CACHE = 'cove-gym-v1';
+const CACHE = 'cove-gym-v2';
 
 const ASSETS = [
   './',
@@ -7,11 +7,17 @@ const ASSETS = [
   './icon-192.png',
   './icon-512.png'
 ];
+// Nice to have offline, but install must not fail if it can't be fetched
+const OPTIONAL = [
+  'https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap'
+];
 
 // Install: cache core assets
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE).then(cache =>
+      cache.addAll(ASSETS).then(() => Promise.all(OPTIONAL.map(u => cache.add(u).catch(() => {}))))
+    ).then(() => self.skipWaiting())
   );
 });
 
@@ -24,29 +30,31 @@ self.addEventListener('activate', e => {
   );
 });
 
-// Fetch: network-first for the page (so updates land), cache-first for everything else
+function saveCopy(req, res) {
+  if (res && res.status === 200 && res.type !== 'opaque') {
+    const clone = res.clone();
+    caches.open(CACHE).then(c => c.put(req, clone));
+  }
+  return res;
+}
+
+// Fetch: always answer from the saved copy first so the app opens instantly
+// with no signal or a weak one; refresh the saved copy in the background.
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   if (e.request.mode === 'navigate') {
     e.respondWith(
-      fetch(e.request).then(res => {
-        const clone = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, clone));
-        return res;
-      }).catch(() => caches.match(e.request).then(r => r || caches.match('./index.html')))
+      caches.match(e.request, { ignoreSearch: true }).then(cached => {
+        const update = fetch(e.request).then(res => saveCopy(e.request, res));
+        e.waitUntil(update.catch(() => {}));
+        return cached || caches.match('./index.html').then(r => r || update);
+      })
     );
     return;
   }
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(res => {
-        if (res && res.status === 200 && res.type !== 'opaque') {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-        }
-        return res;
-      });
-    })
+    caches.match(e.request).then(cached =>
+      cached || fetch(e.request).then(res => saveCopy(e.request, res))
+    )
   );
 });

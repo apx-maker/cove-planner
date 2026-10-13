@@ -13,7 +13,8 @@
 <link rel="manifest" href="manifest-gym.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Font loads in the background: the app must never wait on the internet to show (gyms have bad signal) -->
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <style>
 :root{
   --bg:#F4F4F6;--surf:#FFF;--s2:#EEEEF1;--s3:#E2E2E7;
@@ -720,6 +721,10 @@ renderAll();
 
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('./sw-gym.js').catch(()=>{}));
+}
+// Ask the browser to keep this app's saved data even when the phone is low on space.
+if(navigator.storage && navigator.storage.persist){
+  navigator.storage.persisted().then(p=>{ if(!p) navigator.storage.persist(); }).catch(()=>{});
 }
 </script>
 </body>
