@@ -158,6 +158,11 @@ nav button.on i{filter:none;opacity:1;}
 #rest{position:fixed;left:12px;right:12px;bottom:calc(var(--nh) + var(--sb) + 10px);z-index:25;max-width:536px;margin:0 auto;background:var(--text);color:var(--bg);border-radius:20px;padding:10px 10px 10px 18px;display:none;align-items:center;gap:10px;box-shadow:0 10px 30px rgba(0,0,0,.25);}
 #rest.on{display:flex;}
 #rest.go{background:var(--green);color:#fff;}
+#restFlash{position:fixed;inset:0;z-index:70;background:var(--green);color:#fff;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;animation:flash .5s ease-in-out 3 alternate;}
+#restFlash.on{display:flex;}
+#restFlash b{font-size:52px;font-weight:800;letter-spacing:-.04em;}
+#restFlash span{font-size:16px;font-weight:700;opacity:.85;}
+@keyframes flash{from{opacity:1}to{opacity:.55}}
 #rest .rt{flex:1;}
 #rest .rt small{display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;opacity:.6;}
 #rest .rt b{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;}
@@ -247,6 +252,7 @@ nav button.on i{filter:none;opacity:1;}
   <input type="file" id="importFile" accept="application/json" hidden>
 </div></div>
 
+<div id="restFlash" role="alert"><b>Rest over 💪</b><span>Next set — tap to continue</span></div>
 <div id="toast"></div>
 
 <script>
@@ -561,12 +567,13 @@ let restEnd=0, restIv=null, audioCtx=null;
 function beep(){
   try{
     audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)();
-    [0,.25].forEach(t=>{
-      const o=audioCtx.createOscillator(), g=audioCtx.createGain();
-      o.frequency.value=880; o.connect(g); g.connect(audioCtx.destination);
-      g.gain.setValueAtTime(.25,audioCtx.currentTime+t); g.gain.exponentialRampToValueAtTime(.001,audioCtx.currentTime+t+.2);
-      o.start(audioCtx.currentTime+t); o.stop(audioCtx.currentTime+t+.2);
-    });
+    const now=audioCtx.currentTime;
+    [0,.9,1.8].forEach(burst=>[[0,880],[.18,1320],[.36,880],[.54,1320]].forEach(([t,f])=>{
+      const o=audioCtx.createOscillator(), g=audioCtx.createGain(), at=now+burst+t;
+      o.type='square'; o.frequency.value=f; o.connect(g); g.connect(audioCtx.destination);
+      g.gain.setValueAtTime(.35,at); g.gain.exponentialRampToValueAtTime(.001,at+.16);
+      o.start(at); o.stop(at+.16);
+    }));
   }catch(e){}
 }
 function startRest(){
@@ -582,13 +589,20 @@ function tickRest(){
     clearInterval(restIv); restIv=null;
     $('#restLbl').textContent='Rest over'; $('#restTime').textContent='Go! 💪';
     $('#rest').classList.add('go');
-    if(navigator.vibrate) navigator.vibrate([200,100,200]);
-    beep();
+    // Only alert if it just ended — not when coming back to the app long after.
+    if(Date.now()-restEnd<3000){
+      if(navigator.vibrate) navigator.vibrate([300,150,300,150,300]);
+      beep(); showFlash();
+    }
     setTimeout(()=>{ if(!restIv) stopRest(); },4000);
     return;
   }
   $('#restTime').textContent=`${Math.floor(left/60)}:${pad(left%60)}`;
 }
+let flashT;
+function showFlash(){ $('#restFlash').classList.add('on'); clearTimeout(flashT); flashT=setTimeout(hideFlash,6000); }
+function hideFlash(){ $('#restFlash').classList.remove('on'); }
+$('#restFlash').addEventListener('click',()=>{ hideFlash(); stopRest(); });
 function stopRest(){ clearInterval(restIv); restIv=null; $('#rest').classList.remove('on','go'); }
 $('#rest30').addEventListener('click',()=>{
   if(!restIv){ restEnd=Date.now(); restIv=setInterval(tickRest,250); $('#rest').classList.remove('go'); $('#restLbl').textContent='Rest'; }
